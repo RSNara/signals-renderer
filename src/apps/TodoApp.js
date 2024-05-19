@@ -64,5 +64,10 @@ function Todo() {
   }
 
 export default function App() {
-    return [Todo, {}];
+  return div({
+    children: [
+      h1({children: ['Todo App']}),
+      [Todo, {}]
+    ]
+  });
 }
