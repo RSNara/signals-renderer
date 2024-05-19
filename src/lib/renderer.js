@@ -1,6 +1,5 @@
-import { Computed, State } from './signal';
+import { State } from './signal';
 import { effect } from './effect';
-import { div } from './vdom';
 
 /**
  * ['div']
