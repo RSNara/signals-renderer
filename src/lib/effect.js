@@ -7,13 +7,13 @@ export function effect(fn) {
   effectSignals.push(effectSignal);
 }
 
-function startEffectFlushLoop() {
+function startEffectLoop() {
   queueMicrotask(() => {
     for (const effectSignal of effectSignals) {
       effectSignal.get();
     }
-    requestAnimationFrame(startEffectFlushLoop);
+    requestAnimationFrame(startEffectLoop);
   });
 }
 
-startEffectFlushLoop();
+startEffectLoop();

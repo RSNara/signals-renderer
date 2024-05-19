@@ -2,49 +2,39 @@ import { useState } from '../lib/renderer';
 import {div, h1, button, custom, textInput, checkbox} from '../lib/vdom';
 
 function Counter(props) {
-    const { title, initialCount } = props;
-    const [counter, setCounter] = useState(initialCount);
-    const counterDisplay = `  ${counter}`;
+    const {startAt} = props;
+    const [counter, setCounter] = useState(startAt);
+    const space = ' '.repeat(5);
+
+    const isItEven = div({
+      children: [
+        'Is it even: ',
+        counter % 2 == 0 ? 'yes' : 'no',
+      ],
+    });
   
     return div({
       children: [
-        counter % 2 == 0 ? 'even' : null,
+        isItEven,
         button({
-          children: [title],
+          children: ['Increment'],
   
           onClick: () => {
             console.log(counter);
             setCounter(counter + 1);
           },
         }),
-  
-        counterDisplay,
+        space,
+        String(counter),
       ],
     });
   }
   
 export default function App() {
-    const initialCount = 2;
-    const [title, setTitle] = useState('Counter');
-
-    return div({
-        children: [
-        h1({ children: ['Counter Playground'] }),
-        custom(Counter, {
-            title,
-            initialCount,
-        }),
-        div({
-            children: [
-            'Set Button Text:',
-            textInput({
-                value: title,
-                onChange: (el) => {
-                setTitle(el.target.value);
-                },
-            }),
-            ],
-        }),
-        ],
-    });
+  return div({
+    children: [
+      h1({ children: ['Counter App'] }),
+      custom(Counter, {startAt: 20}),
+    ],
+  });
 }
