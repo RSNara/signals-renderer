@@ -114,6 +114,8 @@ function renderToDom(parent, tree, i) {
   if (Array.isArray(tree)) {
     const [element, props, instance] = tree;
 
+    console.log('Flushing to dom: ', instance.type);
+
     if (typeof element == 'string') {
       instance.element = instance.element || document.createElement(element);
       const el = instance.element;
@@ -139,9 +141,9 @@ function renderToDom(parent, tree, i) {
             throw new Error('Styles must be objects!');
           }
 
-          Object.keys(value).forEach((styleName) => {            
-            el.style[toHyphen(styleName)] = value[styleName];
-          });
+          // Object.keys(value).forEach((styleName) => {
+          //   el.style[toHyphen(styleName)] = value[styleName];
+          // });
           continue;
         }
 
@@ -185,7 +187,7 @@ function renderToDom(parent, tree, i) {
   }
 
   throw new Error(
-    'toDom: Detected unknown tree: ' + JSON.stringify(tree, null, 2)
+    'toDom: Detected unknown tree: ' + JSON.stringify(tree, null, 2),
   );
 }
 
@@ -198,5 +200,5 @@ export function useState(initial) {
 }
 
 function toHyphen(camelCase) {
-  return camelCase.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+  return camelCase.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 }

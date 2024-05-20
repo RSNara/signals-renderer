@@ -1,50 +1,50 @@
-import { Render, useState } from './lib/renderer';
-import { default as CounterApp } from './apps/CounterApp';
-import { default as TodoApp } from './apps/TodoApp';
-import { div, button } from './lib/vdom';
+import { Render, useState } from "./lib/renderer";
+import { default as CounterApp } from "./apps/CounterApp";
+import { default as TodoApp } from "./apps/TodoApp";
+import { div, button } from "./lib/vdom";
 
 console.clear();
 
 function AppSwitcher() {
-  const [app, setApp] = useState('counter');
+  const [app, setApp] = useState("counter");
 
   return div({
     style: {
-      display: 'flex',
-      flexDirection: 'row',
+      display: "flex",
+      flexDirection: "row",
     },
     children: [
       div({
         style: {
-          flexGrow: '1',
-          backgroundColor: 'gray',
+          flexGrow: "1",
+          backgroundColor: "gray",
         },
         children: [
           button({
             onClick: () => {
-              setApp('counter');
+              setApp("counter");
             },
-            children: ['Counter']
+            children: ["Counter"],
           }),
           button({
             onClick: () => {
-              setApp('todo');
+              setApp("todo");
             },
-            children: ['Todo']
-          })
-        ]
+            children: ["Todo"],
+          }),
+        ],
       }),
       div({
         style: {
-          flexGrow: '3',
+          flexGrow: "3",
         },
         children: [
-          app == 'counter' ? [CounterApp, {}] : null,
-          app == 'todo' ? [TodoApp, {}] : null,
-        ]
-      })
-    ]
+          app == "counter" ? [CounterApp, {}] : null,
+          app == "todo" ? [TodoApp, {}] : null,
+        ],
+      }),
+    ],
   });
 }
 
-Render(document.getElementById('app'), [AppSwitcher, {}]);
+Render(document.getElementById("app"), [AppSwitcher, {}]);
