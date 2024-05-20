@@ -133,8 +133,19 @@ function renderToDom(parent, tree, i) {
           continue;
         }
 
-        // <input/>
+        if (key == 'style') {
+          // el.style.all = 'unset';
+          if (typeof value != 'object') {
+            throw new Error('Styles must be objects!');
+          }
 
+          Object.keys(value).forEach((styleName) => {            
+            el.style[toHyphen(styleName)] = value[styleName];
+          });
+          continue;
+        }
+
+        // <input/>
         if (key == 'type') {
           el.type = value;
           continue;
@@ -184,4 +195,8 @@ export function useState(initial) {
   currentInstance.hooks[i] = currentInstance.hooks[i] || new State(initial);
   const state = currentInstance.hooks[i];
   return [state.get(), (newVal) => state.set(newVal)];
+}
+
+function toHyphen(camelCase) {
+  return camelCase.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
 }
