@@ -12,6 +12,7 @@ function Todo() {
         value: todo,
 
         onChange: (event) => {
+          console.log('Dispatching onChange: ' + event.target);
           setTodo(event.target.value);
         },
       }),

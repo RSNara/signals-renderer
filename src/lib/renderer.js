@@ -12,8 +12,25 @@ export function Render(el, tree) {
   let instance = {};
   effect(() => {
     const expandedTree = expandTree(tree, instance);
+    console.log(JSON.stringify(simplifyTree(expandedTree), null, 2));
     renderToDom(el, expandedTree, 0);
   });
+}
+
+function simplifyTree(expandedTree) {
+  if (expandedTree == null) {
+    return null;
+  }
+
+  if (typeof expandedTree == 'string') {
+    return expandedTree;
+  }
+
+  const [tag, props] = expandedTree;
+  return {
+    tag,
+    children: (props.children || []).map(simplifyTree),
+  };
 }
 
 function insertToParent(parent, el, i) {
@@ -99,6 +116,10 @@ function cleanup(instance) {
   }
 }
 
+function createElement(tag) {
+  return document.createElement(tag);
+}
+
 function renderToDom(parent, tree, i) {
   if (typeof tree == 'string') {
     const el = document.createTextNode(tree);
@@ -112,12 +133,10 @@ function renderToDom(parent, tree, i) {
   }
 
   if (Array.isArray(tree)) {
-    const [element, props, instance] = tree;
+    const [tag, props, instance] = tree;
 
-    console.log('Flushing to dom: ', instance.type);
-
-    if (typeof element == 'string') {
-      instance.element = instance.element || document.createElement(element);
+    if (typeof tag == 'string') {
+      instance.element = instance.element || createElement(tag);
       const el = instance.element;
 
       const { children = [], ...$props } = props;
@@ -131,19 +150,21 @@ function renderToDom(parent, tree, i) {
           }
 
           instance.events.click = value;
-          el.addEventListener('click', value);
+          if (value != null) {
+            el.addEventListener('click', value);
+          }
           continue;
         }
 
         if (key == 'style') {
-          // el.style.all = 'unset';
-          if (typeof value != 'object') {
-            throw new Error('Styles must be objects!');
-          }
+          //   // el.style.all = 'unset';
+          //   if (typeof value != 'object') {
+          //     throw new Error('Styles must be objects!');
+          //   }
 
-          // Object.keys(value).forEach((styleName) => {
-          //   el.style[toHyphen(styleName)] = value[styleName];
-          // });
+          //   // Object.keys(value).forEach((styleName) => {
+          //   //   el.style[toHyphen(styleName)] = value[styleName];
+          //   // });
           continue;
         }
 
@@ -166,19 +187,30 @@ function renderToDom(parent, tree, i) {
         if (key == 'onChange') {
           instance.events = instance.events || {};
           if (instance.events.input != null) {
-            el.removeEventListener('click', instance.events.input);
+            el.removeEventListener('input', instance.events.input);
           }
 
           instance.events.input = value;
-          el.addEventListener('input', value);
+          if (value != null) {
+            el.addEventListener('input', value);
+          }
           continue;
         }
 
         throw new Error('Unsupported prop: ' + key);
       }
 
-      for (let childIndex = 0; childIndex < children.length; childIndex += 1) {
-        renderToDom(el, children[childIndex], childIndex);
+      const childComponents = children.filter(Boolean);
+      childComponents.forEach((child, childIndex) => {
+        renderToDom(el, child, childIndex);
+      });
+
+      for (
+        let childIndex = childComponents.length;
+        childIndex < el.childNodes.length;
+        childIndex += 1
+      ) {
+        renderToDom(el, null, childIndex);
       }
 
       insertToParent(parent, el, i);
