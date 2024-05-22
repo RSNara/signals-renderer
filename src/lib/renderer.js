@@ -12,7 +12,7 @@ export function Render(el, tree) {
   let instance = {};
   effect(() => {
     const expandedTree = expandTree(tree, instance);
-    console.log(JSON.stringify(simplifyTree(expandedTree), null, 2));
+    // console.log(JSON.stringify(simplifyTree(expandedTree), null, 2));
     renderToDom(el, expandedTree, 0);
   });
 }
@@ -229,8 +229,4 @@ export function useState(initial) {
   currentInstance.hooks[i] = currentInstance.hooks[i] || new State(initial);
   const state = currentInstance.hooks[i];
   return [state.get(), (newVal) => state.set(newVal)];
-}
-
-function toHyphen(camelCase) {
-  return camelCase.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 }

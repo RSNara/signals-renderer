@@ -1,35 +1,45 @@
-export function div(props) {
-  return ['div', props];
+function toProps(arg) {
+  if (!arg) {
+    return {};
+  }
+  if (Array.isArray(arg)) {
+    return { children: arg };
+  }
+  return arg;
 }
 
-export function h1(props) {
-  return ['h1', props];
+export function div(arg) {
+  return ['div', toProps(arg)];
 }
 
-export function button(props) {
-  return ['button', props];
+export function h1(arg) {
+  return ['h1', toProps(arg)];
 }
 
-export function custom(renderFn, props) {
-  return [renderFn, props];
+export function button(arg) {
+  return ['button', toProps(arg)];
 }
 
-export function textInput(props) {
+export function custom(renderFn, arg) {
+  return [renderFn, toProps(arg)];
+}
+
+export function textInput(arg) {
   return [
     'input',
     {
       type: 'text',
-      ...props,
+      ...toProps(arg),
     },
   ];
 }
 
-export function checkbox(props) {
+export function checkbox(arg) {
   return [
     'input',
     {
       type: 'checkbox',
-      ...props,
+      ...toProps(arg),
     },
   ];
 }
