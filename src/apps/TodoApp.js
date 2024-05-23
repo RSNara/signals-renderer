@@ -1,13 +1,13 @@
 import { useState } from '../lib/renderer';
-import { div, h1, button, custom, textInput, checkbox } from '../lib/vdom';
+import { div, h1, button, custom, input } from '../lib/vdom';
 
 function Todo() {
   const [todos, setTodos] = useState([]);
   const [todo, setTodo] = useState('');
 
-  const input = div([
+  const inputAddTodo = div([
     'Add todo: ',
-    textInput({
+    input.text({
       value: todo,
 
       onChange: (event) => {
@@ -39,11 +39,11 @@ function Todo() {
   }
 
   return div([
-    input,
+    inputAddTodo,
     ...todos.map((todo, i) =>
       div([
         div([
-          checkbox({
+          input.checkbox({
             checked: todo.checked,
             onChange: (event) => {
               updateTodo(todo, { checked: event.target.checked });

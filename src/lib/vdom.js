@@ -24,6 +24,28 @@ export function custom(renderFn, arg) {
   return [renderFn, toProps(arg)];
 }
 
+export const input = {
+  text(arg) {
+    return [
+      'input',
+      {
+        type: 'text',
+        ...toProps(arg),
+      },
+    ];
+  },
+
+  checkbox(arg) {
+    return [
+      'input',
+      {
+        type: 'checkbox',
+        ...toProps(arg),
+      },
+    ];
+  },
+};
+
 export function textInput(arg) {
   return [
     'input',

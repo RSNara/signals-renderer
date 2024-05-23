@@ -1,5 +1,5 @@
 import { useState } from '../lib/renderer';
-import { div, h1, button, custom, textInput, checkbox } from '../lib/vdom';
+import { div, h1, button, custom } from '../lib/vdom';
 
 function Counter(props) {
   const { startAt } = props;
