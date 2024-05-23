@@ -45,23 +45,3 @@ export const input = {
     ];
   },
 };
-
-export function textInput(arg) {
-  return [
-    'input',
-    {
-      type: 'text',
-      ...toProps(arg),
-    },
-  ];
-}
-
-export function checkbox(arg) {
-  return [
-    'input',
-    {
-      type: 'checkbox',
-      ...toProps(arg),
-    },
-  ];
-}
