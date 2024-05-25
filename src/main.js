@@ -8,42 +8,52 @@ console.clear();
 function AppSwitcher() {
   const [app, setApp] = useState('todo');
 
+  const navBar = div({
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      width: '10em',
+      paddingRight: '1em',
+    },
+    children: [
+      button({
+        style: {
+          boxShadow: app == 'counter' ? '0.1em 0.1em 0.5em black' : 'none',
+        },
+        onClick: () => {
+          setApp('counter');
+        },
+        children: ['Counter'],
+      }),
+      button({
+        style: {
+          boxShadow: app == 'todo' ? '0.1em 0.1em 0.5em black' : 'none',
+        },
+        onClick: () => {
+          setApp('todo');
+        },
+        children: ['Todo'],
+      }),
+    ],
+  });
+
+  const appScreen = div({
+    style: {
+      flexGrow: '1',
+    },
+    children: [
+      app == 'counter' ? [CounterApp, {}] : null,
+      app == 'todo' ? [TodoApp, {}] : null,
+    ],
+  });
+
   return div({
     style: {
       display: 'flex',
       flexDirection: 'row',
+      paddingTop: '1.5em',
     },
-    children: [
-      div({
-        style: {
-          flexGrow: '1',
-          backgroundColor: 'gray',
-        },
-        children: [
-          button({
-            onClick: () => {
-              setApp('counter');
-            },
-            children: ['Counter'],
-          }),
-          button({
-            onClick: () => {
-              setApp('todo');
-            },
-            children: ['Todo'],
-          }),
-        ],
-      }),
-      div({
-        style: {
-          flexGrow: '3',
-        },
-        children: [
-          app == 'counter' ? [CounterApp, {}] : null,
-          app == 'todo' ? [TodoApp, {}] : null,
-        ],
-      }),
-    ],
+    children: [navBar, appScreen],
   });
 }
 

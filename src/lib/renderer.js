@@ -147,7 +147,7 @@ function renderFullyExpandedTreeToDom(parent, tree, i) {
           continue;
         }
 
-        if (['type', 'value', 'checked'].includes(key)) {
+        if (['type', 'value', 'checked', 'className'].includes(key)) {
           instance.element[key] = value;
           continue;
         }

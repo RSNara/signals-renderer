@@ -13,7 +13,18 @@ export function div(arg) {
 }
 
 export function h1(arg) {
-  return ['h1', toProps(arg)];
+  const props = toProps(arg);
+  return [
+    'h1',
+    {
+      ...props,
+      style: {
+        ...(props.style || {}),
+        // TODO: Move this elsewhere!
+        marginTop: 0,
+      },
+    },
+  ];
 }
 
 export function button(arg) {
