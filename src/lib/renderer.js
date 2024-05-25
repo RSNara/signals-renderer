@@ -108,6 +108,10 @@ function expandTree(tree, instance) {
   return expandTree(renderResult, instance.next);
 }
 
+function hyphenate(camelCase) {
+  return camelCase.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
+}
+
 function cleanup(instance) {
   if (instance.events && instance.element) {
     for (const [event, callback] of Object.entries(instance.events)) {
@@ -119,6 +123,15 @@ function cleanup(instance) {
 function createElement(tag) {
   return document.createElement(tag);
 }
+
+const eventMap = {
+  button: {
+    onClick: 'click',
+  },
+  input: {
+    onChange: 'input',
+  },
+};
 
 function renderToDom(parent, tree, i) {
   if (typeof tree == 'string') {
@@ -133,87 +146,54 @@ function renderToDom(parent, tree, i) {
   }
 
   if (Array.isArray(tree)) {
-    const [tag, props, instance] = tree;
+    const [tag, newProps, instance] = tree;
 
     if (typeof tag == 'string') {
       instance.element = instance.element || createElement(tag);
-      const el = instance.element;
 
-      const { children = [], ...$props } = props;
+      const update = diff(instance.props || {}, newProps || {});
+      instance.props = newProps;
+      const children = newProps.children || [];
 
-      for (const [key, value] of Object.entries($props)) {
-        // <button/> stuff
-        if (key == 'onClick') {
-          instance.events = instance.events || {};
-          if (instance.events.click != null) {
-            el.removeEventListener('click', instance.events.click);
-          }
-
-          instance.events.click = value;
-          if (value != null) {
-            el.addEventListener('click', value);
-          }
-          continue;
-        }
-
+      for (const [key, value] of Object.entries(update)) {
         if (key == 'style') {
-          //   // el.style.all = 'unset';
-          //   if (typeof value != 'object') {
-          //     throw new Error('Styles must be objects!');
-          //   }
-
-          //   // Object.keys(value).forEach((styleName) => {
-          //   //   el.style[toHyphen(styleName)] = value[styleName];
-          //   // });
-          continue;
-        }
-
-        // <input/>
-        if (key == 'type') {
-          el.type = value;
-          continue;
-        }
-
-        if (key == 'value') {
-          el.value = value;
-          continue;
-        }
-
-        if (key == 'checked') {
-          el.checked = value;
-          continue;
-        }
-
-        if (key == 'onChange') {
-          instance.events = instance.events || {};
-          if (instance.events.input != null) {
-            el.removeEventListener('input', instance.events.input);
+          for (const [styleKey, styleValue] of Object.entries(value)) {
+            const actualStyleKey = hyphenate(styleKey);
+            instance.element.style[actualStyleKey] = styleValue;
           }
+          continue;
+        }
 
-          instance.events.input = value;
-          if (value != null) {
-            el.addEventListener('input', value);
-          }
+        if (['type', 'value', 'checked'].includes(key)) {
+          instance.element[key] = value;
+          continue;
+        }
+
+        // Is valid event?
+        if (eventMap[tag] && eventMap[tag][key]) {
+          const eventName = eventMap[tag][key];
+          updateEventListener(instance, eventName, value);
           continue;
         }
 
         throw new Error('Unsupported prop: ' + key);
       }
 
+      // Should we do more intelligent diffing for children?
       const childComponents = children.filter(Boolean);
       childComponents.forEach((child, childIndex) => {
-        renderToDom(el, child, childIndex);
+        renderToDom(instance.element, child, childIndex);
       });
 
       for (
         let childIndex = childComponents.length;
-        childIndex < el.childNodes.length;
+        childIndex < instance.element.childNodes.length;
         childIndex += 1
       ) {
-        renderToDom(el, null, childIndex);
+        renderToDom(instance.element, null, childIndex);
       }
 
-      insertToParent(parent, el, i);
+      insertToParent(parent, instance.element, i);
       return;
     }
   }
@@ -221,6 +201,55 @@ function renderToDom(parent, tree, i) {
   throw new Error(
     'toDom: Detected unknown tree: ' + JSON.stringify(tree, null, 2),
   );
+}
+
+function updateEventListener(instance, eventName, handler) {
+  instance.events = instance.events || {};
+
+  if (instance.events[eventName] != null) {
+    instance.element.removeEventListener(eventName, instance.events[eventName]);
+  }
+
+  instance.events[eventName] = handler;
+  if (handler != null) {
+    instance.element.addEventListener(eventName, handler);
+  }
+}
+
+function diff(oldProps, newProps) {
+  const update = {};
+  const allProps = new Set(Object.keys(newProps).concat(Object.keys(oldProps)));
+
+  for (const key of allProps) {
+    if (key == 'children') {
+      continue;
+    }
+
+    if (key == 'style') {
+      update[key] = diff(oldProps.style || {}, newProps.style || {});
+      continue;
+    }
+
+    if (oldProps[key] == null && newProps[key] != null) {
+      update[key] = newProps[key];
+      continue;
+    }
+
+    if (oldProps[key] != null && newProps[key] == null) {
+      update[key] = null;
+      continue;
+    }
+
+    if (oldProps[key] == newProps[key]) {
+      continue;
+    }
+
+    update[key] = newProps[key];
+  }
+
+  console.log('Update payload: ', JSON.stringify(update, null, 2));
+
+  return update;
 }
 
 export function useState(initial) {
