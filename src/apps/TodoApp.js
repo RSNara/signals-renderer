@@ -3,25 +3,12 @@ import { div, h1, button, custom, input } from '../lib/vdom';
 
 function Todo() {
   const [todos, setTodos] = useState([]);
-  const [todo, setTodo] = useState('');
 
-  const inputAddTodo = div([
-    'Add todo: ',
-    input.text({
-      value: todo,
-
-      onChange: (event) => {
-        setTodo(event.target.value);
-      },
-    }),
-    button({
-      onClick: () => {
-        setTodos([...todos, { checked: false, label: todo }]);
-        setTodo('');
-      },
-      children: ['Press me!'],
-    }),
-  ]);
+  const inputAddTodo = custom(TodoInput, {
+    onSubmit: (todo) => {
+      setTodos([...todos, { checked: false, label: todo }]);
+    },
+  });
 
   function updateTodo(todo, update) {
     setTodos(
@@ -53,6 +40,29 @@ function Todo() {
         ]),
       ]),
     ),
+  ]);
+}
+
+function TodoInput(props) {
+  const { onSubmit } = props;
+  const [todo, setTodo] = useState('');
+
+  return div([
+    'Add todo: ',
+    input.text({
+      value: todo,
+
+      onChange: (event) => {
+        setTodo(event.target.value);
+      },
+    }),
+    button({
+      onClick: () => {
+        onSubmit(todo);
+        setTodo('');
+      },
+      children: ['Press me!'],
+    }),
   ]);
 }
 
