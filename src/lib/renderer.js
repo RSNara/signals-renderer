@@ -11,26 +11,9 @@ let hookIndex = 0;
 export function Render(el, tree) {
   let instance = {};
   effect(() => {
-    const expandedTree = expandTree(tree, instance);
-    // console.log(JSON.stringify(simplifyTree(expandedTree), null, 2));
-    renderToDom(el, expandedTree, 0);
+    const expandedTree = fullyExpandTree(tree, instance);
+    renderFullyExpandedTreeToDom(el, expandedTree, 0);
   });
-}
-
-function simplifyTree(expandedTree) {
-  if (expandedTree == null) {
-    return null;
-  }
-
-  if (typeof expandedTree == 'string') {
-    return expandedTree;
-  }
-
-  const [tag, props] = expandedTree;
-  return {
-    tag,
-    children: (props.children || []).map(simplifyTree),
-  };
 }
 
 function insertToParent(parent, el, i) {
@@ -50,7 +33,7 @@ function insertToParent(parent, el, i) {
   }
 }
 
-function expandTree(tree, instance) {
+function fullyExpandTree(tree, instance) {
   if (typeof tree == 'string') {
     return tree;
   }
@@ -78,7 +61,7 @@ function expandTree(tree, instance) {
       instance.children[i] = { type: child[0] };
     }
 
-    return expandTree(child, instance.children[i]);
+    return fullyExpandTree(child, instance.children[i]);
   });
 
   if (typeof type == 'string') {
@@ -105,7 +88,7 @@ function expandTree(tree, instance) {
     hookIndex = previousHookIndex;
   }
 
-  return expandTree(renderResult, instance.next);
+  return fullyExpandTree(renderResult, instance.next);
 }
 
 function hyphenate(camelCase) {
@@ -133,7 +116,7 @@ const eventMap = {
   },
 };
 
-function renderToDom(parent, tree, i) {
+function renderFullyExpandedTreeToDom(parent, tree, i) {
   if (typeof tree == 'string') {
     const el = document.createTextNode(tree);
     insertToParent(parent, el, i);
@@ -182,7 +165,7 @@ function renderToDom(parent, tree, i) {
       // Should we do more intelligent diffing for children?
       const childComponents = children.filter(Boolean);
       childComponents.forEach((child, childIndex) => {
-        renderToDom(instance.element, child, childIndex);
+        renderFullyExpandedTreeToDom(instance.element, child, childIndex);
       });
 
       for (
@@ -190,7 +173,7 @@ function renderToDom(parent, tree, i) {
         childIndex < instance.element.childNodes.length;
         childIndex += 1
       ) {
-        renderToDom(instance.element, null, childIndex);
+        renderFullyExpandedTreeToDom(instance.element, null, childIndex);
       }
 
       insertToParent(parent, instance.element, i);
