@@ -60,7 +60,7 @@ function Todo() {
 
 function TodoInput(props) {
   const { onSubmit } = props;
-  const [todo, setTodo] = useState('');
+  const [todo, setTodo] = useState('', true);
 
   return div([
     'Add todo: ',

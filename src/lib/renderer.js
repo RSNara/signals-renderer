@@ -5,6 +5,12 @@ import { effect } from './effect';
  * ['div']
  */
 
+const Tag = {
+  String: Symbol.for('string'),
+  Null: Symbol.for('null'),
+  Root: Symbol.for('root'),
+};
+
 class Instance {
   _children = [];
   _next = null;
@@ -12,9 +18,16 @@ class Instance {
 
   static current = null;
   static hookIndex = 0;
+  static uuid = 0;
+
+  id = Instance.uuid++;
 
   constructor(tag) {
     this._tag = tag;
+  }
+
+  tag() {
+    return this._tag;
   }
 
   element(tag) {
@@ -23,6 +36,17 @@ class Instance {
   }
 
   addEventListener(eventName, handler) {
+    if (handler == null) {
+      if (this._events[eventName] != null) {
+        this._element.removeEventListener(eventName, this._events[eventName]);
+      }
+      return;
+    }
+
+    if (this._events[eventName] == handler) {
+      return;
+    }
+
     if (this._events[eventName] != null) {
       this._element.removeEventListener(eventName, this._events[eventName]);
     }
@@ -48,7 +72,7 @@ class Instance {
   nthChild(tag, i) {
     if (!this._children[i]) {
       this._children[i] = new Instance(tag);
-    } else if (this._children[i].tag != tag) {
+    } else if (this._children[i].tag() != tag) {
       this._children[i].cleanup();
       this._children[i] = new Instance(tag);
     }
@@ -58,8 +82,9 @@ class Instance {
   next(tag) {
     // Tear down the old instance, as necessary
     if (!this._next) {
+      // console.log('Creating nexxt (does not exist): ', tag);
       this._next = new Instance(tag);
-    } else if (this._next.tag != tag) {
+    } else if (this._next.tag() != tag) {
       this._next.cleanup();
       this._next = new Instance(tag);
     }
@@ -82,36 +107,49 @@ class Instance {
 
 class Element {
   constructor(tag, props, children, instance) {
-    this.tag = tag;
-    this.children = children;
-    this.instance = instance;
-    this.props = props;
+    this._tag = tag;
+    this._children = children;
+    this._instance = instance;
+    this._props = props;
+  }
+
+  tag() {
+    return this._tag;
+  }
+
+  children() {
+    return this._children;
+  }
+
+  instance() {
+    return this._instance;
   }
 
   static forString(str) {
-    return new Element(Symbol.for('string'), {}, [str], null);
+    return new Element(Tag.String, {}, [str], null);
   }
 
   static forNull() {
-    return new Element(Symbol.for('null'), {}, [], null);
+    return new Element(Tag.Null, {}, [], null);
   }
 
   diff() {
-    const oldProps = this.instance._props || {};
-    const newProps = this.props || {};
-    this.instance._props = newProps;
+    const oldProps = this._instance._props || {};
+    const newProps = this._props || {};
+    this._instance._props = newProps;
     return diff(oldProps, newProps);
   }
 }
 
 export function Render(el, tree) {
+  const rootInstance = new Instance(Tag.Root);
   effect(() => {
-    const elementTree = createElementTree(tree);
+    const elementTree = createElementTree(tree, rootInstance);
     renderElementTree(el, elementTree, 0);
   });
 }
 
-function createElementTree(tree, instance = new Instance(Symbol.for('root'))) {
+function createElementTree(tree, instance) {
   if (typeof tree == 'string') {
     return Element.forString(tree);
   }
@@ -162,21 +200,21 @@ const eventMap = {
 };
 
 function renderElementTree(parent, tree, i) {
-  if (tree.tag === Symbol.for('string')) {
-    const el = document.createTextNode(tree.children[0]);
+  if (tree.tag() === Tag.String) {
+    const el = document.createTextNode(tree.children()[0]);
     insertToParent(parent, el, i);
     return;
   }
 
-  if (tree.tag == Symbol.for('null')) {
+  if (tree.tag() == Tag.Null) {
     insertToParent(parent, null, i);
     return;
   }
 
-  const tag = tree.tag;
-  const instance = tree.instance;
+  const tag = tree.tag();
+  const instance = tree.instance();
   const update = tree.diff();
-  const element = instance.element(tree.tag);
+  const element = instance.element(tree.tag());
 
   for (const [key, value] of Object.entries(update)) {
     if (key == 'style') {
@@ -195,7 +233,6 @@ function renderElementTree(parent, tree, i) {
     // Is valid event?
     if (eventMap[tag] && eventMap[tag][key]) {
       const eventName = eventMap[tag][key];
-      console.log('attaching event listener: ' + eventName);
       instance.addEventListener(eventName, value);
       continue;
     }
@@ -204,7 +241,9 @@ function renderElementTree(parent, tree, i) {
   }
 
   // Should we do more intelligent diffing for children?
-  const childComponents = tree.children.filter(Boolean);
+  const childComponents = tree
+    .children()
+    .filter((child) => child.tag() != Tag.Null);
   childComponents.forEach((child, childIndex) => {
     renderElementTree(element, child, childIndex);
   });
@@ -271,10 +310,15 @@ function diff(oldProps, newProps) {
   return update;
 }
 
-export function useState(initial) {
+export function useState(initial, log) {
   let i = Instance.hookIndex++;
   Instance.current.hooks = Instance.current.hooks || [];
   Instance.current.hooks[i] = Instance.current.hooks[i] || new State(initial);
   const state = Instance.current.hooks[i];
-  return [state.get(), (newVal) => state.set(newVal)];
+  return [
+    state.get(),
+    (newVal) => {
+      state.set(newVal);
+    },
+  ];
 }
