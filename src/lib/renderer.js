@@ -72,25 +72,20 @@ class Instance {
     try {
       Instance.current = this;
       Instance.hookIndex = 0;
-      this._update = diff(this._props || {}, props || {});
-      this._props = props;
       return tag(props);
     } finally {
       Instance.current = previousInstance;
       Instance.hookIndex = previousHookIndex;
     }
   }
-
-  updatePayload() {
-    return this._update;
-  }
 }
 
 class Element {
-  constructor(tag, children, instance) {
+  constructor(tag, props, children, instance) {
     this.tag = tag;
     this.children = children;
     this.instance = instance;
+    this.props = props;
   }
 
   static forString(str) {
@@ -99,6 +94,13 @@ class Element {
 
   static forNull() {
     return new Element(Symbol.for('null'), {}, [], null);
+  }
+
+  diff() {
+    const oldProps = this.instance._props || {};
+    const newProps = this.props || {};
+    this.instance._props = newProps;
+    return diff(oldProps, newProps);
   }
 }
 
@@ -122,13 +124,13 @@ function createElementTree(tree, instance = new Instance(Symbol.for('root'))) {
   const props = tree[1];
 
   if (typeof tag == 'string') {
-    const { children = [] } = props;
+    const { children = [], ...elementProps } = props;
     const elementChildren = children.map((child, i) => {
       if (typeof child === 'string') {
         return Element.forString(child);
       }
 
-      if (typeof child == null) {
+      if (child == null) {
         return Element.forNull();
       }
 
@@ -136,7 +138,7 @@ function createElementTree(tree, instance = new Instance(Symbol.for('root'))) {
       return createElementTree(child, childInstance);
     });
 
-    const element = new Element(tag, elementChildren, instance);
+    const element = new Element(tag, elementProps, elementChildren, instance);
     return element;
   }
 
@@ -161,7 +163,7 @@ const eventMap = {
 
 function renderElementTree(parent, tree, i) {
   if (tree.tag === Symbol.for('string')) {
-    const el = document.createTextNode(tree);
+    const el = document.createTextNode(tree.children[0]);
     insertToParent(parent, el, i);
     return;
   }
@@ -171,8 +173,9 @@ function renderElementTree(parent, tree, i) {
     return;
   }
 
+  const tag = tree.tag;
   const instance = tree.instance;
-  const update = instance.updatePayload();
+  const update = tree.diff();
   const element = instance.element(tree.tag);
 
   for (const [key, value] of Object.entries(update)) {
@@ -203,7 +206,7 @@ function renderElementTree(parent, tree, i) {
   // Should we do more intelligent diffing for children?
   const childComponents = tree.children.filter(Boolean);
   childComponents.forEach((child, childIndex) => {
-    renderFullyExpandedTreeToDom(element, child, childIndex);
+    renderElementTree(element, child, childIndex);
   });
 
   for (
@@ -211,7 +214,7 @@ function renderElementTree(parent, tree, i) {
     childIndex < element.childNodes.length;
     childIndex += 1
   ) {
-    renderFullyExpandedTreeToDom(element, null, childIndex);
+    renderElementTree(element, null, childIndex);
   }
 
   insertToParent(parent, element, i);
