@@ -1,19 +1,220 @@
-import { State } from './signal';
+import { Computed, State } from './signal';
 import { effect } from './effect';
 
 /**
  * ['div']
  */
 
-let currentInstance = null;
-let hookIndex = 0;
+class Instance {
+  _children = [];
+  _next = null;
+  _events = {};
+
+  static current = null;
+  static hookIndex = 0;
+
+  constructor(tag) {
+    this._tag = tag;
+  }
+
+  element(tag) {
+    this._element = this._element || document.createElement(tag);
+    return this._element;
+  }
+
+  addEventListener(eventName, handler) {
+    if (this._events[eventName] != null) {
+      this._element.removeEventListener(eventName, this._events[eventName]);
+    }
+
+    this._events[eventName] = handler;
+    if (handler != null) {
+      this._element.addEventListener(eventName, handler);
+    }
+  }
+
+  attachElement(element) {
+    this._element = element;
+  }
+
+  cleanup() {
+    if (this._events && this._element) {
+      for (const [event, callback] of Object.entries(this._events)) {
+        this._element.removeEventListener(event, callback);
+      }
+    }
+  }
+
+  nthChild(tag, i) {
+    if (!this._children[i]) {
+      this._children[i] = new Instance(tag);
+    } else if (this._children[i].tag != tag) {
+      this._children[i].cleanup();
+      this._children[i] = new Instance(tag);
+    }
+    return this._children[i];
+  }
+
+  next(tag) {
+    // Tear down the old instance, as necessary
+    if (!this._next) {
+      this._next = new Instance(tag);
+    } else if (this._next.tag != tag) {
+      this._next.cleanup();
+      this._next = new Instance(tag);
+    }
+    return this._next;
+  }
+
+  render(tag, props) {
+    let previousInstance = Instance.current;
+    let previousHookIndex = Instance.hookIndex;
+    try {
+      Instance.current = this;
+      Instance.hookIndex = 0;
+      this._update = diff(this._props || {}, props || {});
+      this._props = props;
+      return tag(props);
+    } finally {
+      Instance.current = previousInstance;
+      Instance.hookIndex = previousHookIndex;
+    }
+  }
+
+  updatePayload() {
+    return this._update;
+  }
+}
+
+class Element {
+  constructor(tag, children, instance) {
+    this.tag = tag;
+    this.children = children;
+    this.instance = instance;
+  }
+
+  static forString(str) {
+    return new Element(Symbol.for('string'), {}, [str], null);
+  }
+
+  static forNull() {
+    return new Element(Symbol.for('null'), {}, [], null);
+  }
+}
 
 export function Render(el, tree) {
-  let instance = {};
   effect(() => {
-    const expandedTree = fullyExpandTree(tree, instance);
-    renderFullyExpandedTreeToDom(el, expandedTree, 0);
+    const elementTree = createElementTree(tree);
+    renderElementTree(el, elementTree, 0);
   });
+}
+
+function createElementTree(tree, instance = new Instance(Symbol.for('root'))) {
+  if (typeof tree == 'string') {
+    return Element.forString(tree);
+  }
+
+  if (tree == null) {
+    return Element.forNull();
+  }
+
+  const tag = tree[0];
+  const props = tree[1];
+
+  if (typeof tag == 'string') {
+    const { children = [] } = props;
+    const elementChildren = children.map((child, i) => {
+      if (typeof child === 'string') {
+        return Element.forString(child);
+      }
+
+      if (typeof child == null) {
+        return Element.forNull();
+      }
+
+      const childInstance = instance.nthChild(child[0], i);
+      return createElementTree(child, childInstance);
+    });
+
+    const element = new Element(tag, elementChildren, instance);
+    return element;
+  }
+
+  const nextInstance = instance.next(tag);
+  const renderResult = nextInstance.render(tag, props);
+
+  return createElementTree(renderResult, nextInstance);
+}
+
+function hyphenate(camelCase) {
+  return camelCase.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
+}
+
+const eventMap = {
+  button: {
+    onClick: 'click',
+  },
+  input: {
+    onChange: 'input',
+  },
+};
+
+function renderElementTree(parent, tree, i) {
+  if (tree.tag === Symbol.for('string')) {
+    const el = document.createTextNode(tree);
+    insertToParent(parent, el, i);
+    return;
+  }
+
+  if (tree.tag == Symbol.for('null')) {
+    insertToParent(parent, null, i);
+    return;
+  }
+
+  const instance = tree.instance;
+  const update = instance.updatePayload();
+  const element = instance.element(tree.tag);
+
+  for (const [key, value] of Object.entries(update)) {
+    if (key == 'style') {
+      for (const [styleKey, styleValue] of Object.entries(value)) {
+        const actualStyleKey = hyphenate(styleKey);
+        element.style[actualStyleKey] = styleValue;
+      }
+      continue;
+    }
+
+    if (['type', 'value', 'checked', 'className'].includes(key)) {
+      element[key] = value;
+      continue;
+    }
+
+    // Is valid event?
+    if (eventMap[tag] && eventMap[tag][key]) {
+      const eventName = eventMap[tag][key];
+      console.log('attaching event listener: ' + eventName);
+      instance.addEventListener(eventName, value);
+      continue;
+    }
+
+    throw new Error('Unsupported prop: ' + key);
+  }
+
+  // Should we do more intelligent diffing for children?
+  const childComponents = tree.children.filter(Boolean);
+  childComponents.forEach((child, childIndex) => {
+    renderFullyExpandedTreeToDom(element, child, childIndex);
+  });
+
+  for (
+    let childIndex = childComponents.length;
+    childIndex < element.childNodes.length;
+    childIndex += 1
+  ) {
+    renderFullyExpandedTreeToDom(element, null, childIndex);
+  }
+
+  insertToParent(parent, element, i);
 }
 
 function insertToParent(parent, el, i) {
@@ -30,172 +231,6 @@ function insertToParent(parent, el, i) {
     parent.replaceChild(el, parent.childNodes[i]);
   } else {
     parent.appendChild(el);
-  }
-}
-
-function fullyExpandTree(tree, instance) {
-  if (typeof tree == 'string') {
-    return tree;
-  }
-
-  if (tree == null) {
-    return null;
-  }
-
-  let [type, { children = [], ...props }] = tree;
-  children = children.map((child, i) => {
-    if (typeof child === 'string') {
-      return child;
-    }
-
-    if (child == null) {
-      return null;
-    }
-
-    instance.children = instance.children || [];
-
-    if (!instance.children[i]) {
-      instance.children[i] = { type: child[0] };
-    } else if (instance.children[i].type != child[0]) {
-      cleanup(instance.children[i]);
-      instance.children[i] = { type: child[0] };
-    }
-
-    return fullyExpandTree(child, instance.children[i]);
-  });
-
-  if (typeof type == 'string') {
-    return [type, { ...props, children }, instance];
-  }
-
-  // Tear down the old instance, as necessary
-  if (!instance.next) {
-    instance.next = { type: type };
-  } else if (instance.next.type != type) {
-    cleanup(instance.next);
-    instance.next = { type: type };
-  }
-
-  let previousInstance = currentInstance;
-  let previousHookIndex = hookIndex;
-  let renderResult = null;
-  try {
-    currentInstance = instance;
-    hookIndex = 0;
-    renderResult = type({ ...props, children });
-  } finally {
-    currentInstance = previousInstance;
-    hookIndex = previousHookIndex;
-  }
-
-  return fullyExpandTree(renderResult, instance.next);
-}
-
-function hyphenate(camelCase) {
-  return camelCase.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
-}
-
-function cleanup(instance) {
-  if (instance.events && instance.element) {
-    for (const [event, callback] of Object.entries(instance.events)) {
-      instance.element.removeEventListener(event, callback);
-    }
-  }
-}
-
-function createElement(tag) {
-  return document.createElement(tag);
-}
-
-const eventMap = {
-  button: {
-    onClick: 'click',
-  },
-  input: {
-    onChange: 'input',
-  },
-};
-
-function renderFullyExpandedTreeToDom(parent, tree, i) {
-  if (typeof tree == 'string') {
-    const el = document.createTextNode(tree);
-    insertToParent(parent, el, i);
-    return;
-  }
-
-  if (tree == null) {
-    insertToParent(parent, null, i);
-    return;
-  }
-
-  if (Array.isArray(tree)) {
-    const [tag, newProps, instance] = tree;
-
-    if (typeof tag == 'string') {
-      instance.element = instance.element || createElement(tag);
-
-      const update = diff(instance.props || {}, newProps || {});
-      instance.props = newProps;
-      const children = newProps.children || [];
-
-      for (const [key, value] of Object.entries(update)) {
-        if (key == 'style') {
-          for (const [styleKey, styleValue] of Object.entries(value)) {
-            const actualStyleKey = hyphenate(styleKey);
-            instance.element.style[actualStyleKey] = styleValue;
-          }
-          continue;
-        }
-
-        if (['type', 'value', 'checked', 'className'].includes(key)) {
-          instance.element[key] = value;
-          continue;
-        }
-
-        // Is valid event?
-        if (eventMap[tag] && eventMap[tag][key]) {
-          const eventName = eventMap[tag][key];
-          updateEventListener(instance, eventName, value);
-          continue;
-        }
-
-        throw new Error('Unsupported prop: ' + key);
-      }
-
-      // Should we do more intelligent diffing for children?
-      const childComponents = children.filter(Boolean);
-      childComponents.forEach((child, childIndex) => {
-        renderFullyExpandedTreeToDom(instance.element, child, childIndex);
-      });
-
-      for (
-        let childIndex = childComponents.length;
-        childIndex < instance.element.childNodes.length;
-        childIndex += 1
-      ) {
-        renderFullyExpandedTreeToDom(instance.element, null, childIndex);
-      }
-
-      insertToParent(parent, instance.element, i);
-      return;
-    }
-  }
-
-  throw new Error(
-    'toDom: Detected unknown tree: ' + JSON.stringify(tree, null, 2),
-  );
-}
-
-function updateEventListener(instance, eventName, handler) {
-  instance.events = instance.events || {};
-
-  if (instance.events[eventName] != null) {
-    instance.element.removeEventListener(eventName, instance.events[eventName]);
-  }
-
-  instance.events[eventName] = handler;
-  if (handler != null) {
-    instance.element.addEventListener(eventName, handler);
   }
 }
 
@@ -230,15 +265,13 @@ function diff(oldProps, newProps) {
     update[key] = newProps[key];
   }
 
-  console.log('Update payload: ', JSON.stringify(update, null, 2));
-
   return update;
 }
 
 export function useState(initial) {
-  let i = hookIndex++;
-  currentInstance.hooks = currentInstance.hooks || [];
-  currentInstance.hooks[i] = currentInstance.hooks[i] || new State(initial);
-  const state = currentInstance.hooks[i];
+  let i = Instance.hookIndex++;
+  Instance.current.hooks = Instance.current.hooks || [];
+  Instance.current.hooks[i] = Instance.current.hooks[i] || new State(initial);
+  const state = Instance.current.hooks[i];
   return [state.get(), (newVal) => state.set(newVal)];
 }

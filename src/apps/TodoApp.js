@@ -1,6 +1,21 @@
 import { useState } from '../lib/renderer';
 import { div, h1, button, custom, input } from '../lib/vdom';
 
+// What should be in the computed?
+//
+// Todo declares signals
+// Todo uses signals
+// Todo has setters that update signals
+//   Pass the setter to any component.
+//   That gets called, it invalidates the signals.
+//
+// Invoke Todo inside a computed
+// Get jsx signal back
+//
+// We need to
+// (1) unwarp this signal
+// (2) fully expand it
+
 function Todo() {
   const [todos, setTodos] = useState([]);
 
